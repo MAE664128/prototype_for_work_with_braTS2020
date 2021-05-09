@@ -28,8 +28,7 @@ class AnimateView:
         self.ims = []
         for ind_z in range(z):
             im = self.ax.imshow(img[ind_z, :, :], animated=True, cmap='gray', vmin=min_val, vmax=max_val)
-            if ind_z == 0:
-                self.ax.imshow(img[ind_z, :, :], cmap='gray', vmin=min_val, vmax=max_val)
+
             self.ims.append([im])
         self.ani = animation.ArtistAnimation(self.fig,
                                              self.ims,
@@ -595,61 +594,4 @@ def roll_3d_over_4d_array(nd_array: np.ndarray, kernel_shape: Tuple[int, int, in
 
 
 if __name__ == "__main__":
-    SIZE_IMAGE = 256
-    kernel_dim = (SIZE_IMAGE, SIZE_IMAGE)
-    BATCH_SIZE = 1
-    STEP_WINDOW = (SIZE_IMAGE, SIZE_IMAGE)
-
-    loader = PreprocessLoadData(kernel_size=kernel_dim, step=STEP_WINDOW, batch_size=BATCH_SIZE)
-    loader.find_files()
-    print(f"Был найден набор из {loader.length_data()} пар данных")
-    # train_dataset = loader.get_generator_data("train", threshold=(0.02, 0.95),
-    #                                           random_change_plane=False,
-    #                                           augmentation=False)
-    # test_dataset = loader.get_generator_data("test")
-    # c = 0
-    # for image, mask in train_dataset:
-    #     c += 1
-    #     # print(f"Всего экземпляров: {c}")
-    #     # print(mask.shape)
-    #     if c > 150:
-    #         break
-    num = 0
-    count_d = {
-        "count_0": 0,
-        "count_1": 0,
-        "count_2": 0,
-        "count_3": 0,
-        "count_4": 0,
-        "count_all": 0,
-    }
-    train_dataset = loader.get_generator_data("train",
-                                              threshold=(0.02, 0.95),
-                                              random_change_plane=False,
-                                              augmentation=False)
-    # for input_image, input_mask in loader.take_img_as_numpy(file_paths=loader.file_paths):
-    for input_image, input_mask in train_dataset:
-        num += 1
-        count_0 = np.count_nonzero(input_mask == 0)
-        count_d["count_0"] += count_0
-        # NCR/NET — label 1
-        count_1 = np.count_nonzero(input_mask[..., 0] == 1)
-        count_d["count_1"] += count_1
-        # ED — label 2
-        count_2 = np.count_nonzero(input_mask[..., 1] == 1)
-        count_d["count_2"] += count_2
-        count_3 = np.count_nonzero(input_mask == 3)
-        count_d["count_3"] += count_3
-        # ET — label 4
-        count_4 = np.count_nonzero(input_mask[..., 2] == 1)
-        count_d["count_4"] += count_4
-        count_d["count_all"] += input_mask[..., 0].size
-        print(
-            f"{num:3}: 0:{count_0:10}\t1:{count_1:10}\t2:{count_2:10}\t3:{count_3:10}\t4:{count_4:10}\tAll:{input_mask.size:10}\t")
-
-    print(f"{'-' * 10}")
-
-    print(
-        f"0:{count_d['count_0'] / count_d['count_all']:.4f}\t1:{count_d['count_1'] / count_d['count_all']:.4f}\t2:{count_d['count_2'] / count_d['count_all']:.4f}\t3:{count_d['count_3'] / count_d['count_all']:.4f}\t4:{count_d['count_4'] / count_d['count_all']:.4f}")
-
     pass
