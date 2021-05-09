@@ -264,4 +264,4 @@ if __name__ == "__main__":
     # manage_model = Model2DUnet()
     manager_model = Model2DUnet(input_img_shape=(256, 256,), start_val_filters=8)
 
-    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="Model2DUnet.png")
+    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="png/Model2DUnet.png")

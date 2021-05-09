@@ -284,4 +284,4 @@ class Model3DUnet:
 if __name__ == "__main__":
     manager_model = Model3DUnet(input_img_shape=(64, 64, 64,), start_val_filters=8)
 
-    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="Model3DUnet.png")
+    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="png/Model3DUnet.png")

@@ -352,4 +352,4 @@ if __name__ == "__main__":
     # manage_model = Model3DMultiResUnet()
     manager_model = Model3DMultiResUnet(input_img_shape=(64, 64, 64,), start_val_filters=16)
 
-    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="Model3DMultiResUnet.png")
+    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="png/Model3DMultiResUnet.png")
