@@ -334,8 +334,7 @@ class PreprocessLoadData:
 
             if augmentation:
                 if random.random() < 0.5:
-                    img = flip_or_rot_img(img)
-                    msk = flip_or_rot_img(msk)
+                    img, msk = flip_or_rot_img(img, msk)
 
             yield img, msk
 
@@ -515,23 +514,24 @@ def whitening(image):
     return ret
 
 
-def flip_or_rot_img(img):
+def flip_or_rot_img(img, msk=None):
     """
     Args:
-        img: массив размерностью (bath_size, z, x, y, channel) или  (bath_size, x, y, channel)
-
+        img: массив размерностью (bath_size, z, x, y, channel) или (bath_size, x, y, channel)
+        msk: массив размерностью (bath_size, z, x, y, channel) или (bath_size, x, y, channel)
     Returns: перевернутый случайным образом массив
     """
     dim = len(img.shape)
-    if len(img.shape) == 4:
-        pass
-    elif len(img.shape) == 5:
-        i_ax = random.randint(1, dim - 2)
-        if random.random() < 0.5:
-            img = np.flip(img, axis=i_ax)
-        else:
-            img = np.rot90(img, i_ax, axes=(dim - 3, dim - 2))
-    return img
+    i_ax = random.randint(1, dim - 2)
+    if random.random() < 0.5:
+        img = np.flip(img, axis=i_ax)
+        if msk is not None:
+            msk = np.flip(msk, axis=i_ax)
+    else:
+        img = np.rot90(img, i_ax, axes=(dim - 3, dim - 2))
+        if msk is not None:
+            msk = np.rot90(msk, i_ax, axes=(dim - 3, dim - 2))
+    return img, msk
 
 
 def resample_img(itk_image,
