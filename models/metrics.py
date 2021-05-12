@@ -123,12 +123,11 @@ def jaccard_coefficient(y_true: tf.Tensor, y_pred: tf.Tensor, smooth: float = 1e
     return (intersection + smooth_fact) / (union + smooth)
 
 
-def jaccard_distance(y_true: tf.Tensor, y_pred: tf.Tensor,
+def jaccard_distance2(y_true: tf.Tensor, y_pred: tf.Tensor,
                      smooth: float = 1e-2,
                      pull: float = 0.0,
                      limit: float = 1e3):
 
-    weights = [1, 1, 1]
     smooth_fract = pull * smooth
     ofs = 1.0 / limit
     y_true_f = k.cast_to_floatx(y_true)
@@ -137,11 +136,32 @@ def jaccard_distance(y_true: tf.Tensor, y_pred: tf.Tensor,
         intersection = k.sum(y_true_f[..., i] * y_pred[..., i])
         union = k.sum(y_true_f[..., i]) + k.sum(y_pred[..., i]) - intersection
         jac = (intersection + smooth_fract) / (union + smooth)
-        list_jac.append(jac / weights[i])
+        list_jac.append(jac)
 
     jac = k.mean(tf.convert_to_tensor(list_jac, dtype=tf.float32))
 
     return 1.0 - jac
+
+def jaccard_distance(y_true: tf.Tensor, y_pred: tf.Tensor,
+                     smooth: float = 1e-2,
+                     pull: float = 0.0):
+
+    smooth_fract = pull * smooth
+    y_true_f = k.cast_to_floatx(y_true)
+    y_pred = k.cast_to_floatx(y_pred)
+    if len(y_true_f.shape) == 5:
+        axis = (-4, -3, -2)
+    elif len(y_true_f.shape) == 4:
+        axis = (-3, -2)
+    else:
+        axis = -2
+    intersection = k.sum(y_true_f * y_pred, axis=axis)
+    union = k.sum(y_true_f, axis=axis) + k.sum(y_pred, axis=axis) - intersection
+    jac = (intersection + smooth_fract) / (union + smooth)
+    jac = k.mean(jac, axis=-1)
+
+    return 1.0 - jac
+
 
 
 def label_wise_jaccard_coefficient(y_true, y_pred, label_index):
@@ -168,84 +188,27 @@ def get_jaccard_metric_as_custom_object(count):
 
 if __name__ == "__main__":
     # TEST CASES
-    pred = np.expand_dims(np.expand_dims(np.eye(2), 0), -1)
-    label = np.expand_dims(np.expand_dims(np.array([[1.0, 1.0], [0.0, 0.0]]), 0), -1)
-
-    print("Test Case #1")
-    print("pred:")
-    print(pred[0, :, :, 0])
-    print("label:")
-    print(label[0, :, :, 0])
-
-    dc = dice_coefficient(label, pred, epsilon=1)
-    print(f"dice coefficient: {dc.numpy():.4f}")
-    jc = jaccard_coefficient(label, pred)
-    print(f"jaccard coefficient: {jc.numpy():.4f}")
-
-    print("\n")
-
-    print("Test Case #2")
-    pred = np.expand_dims(np.expand_dims(np.eye(2), 0), -1)
-    label = np.expand_dims(np.expand_dims(np.array([[1.0, 1.0], [0.0, 1.0]]), 0), -1)
-
-    print("pred:")
-    print(pred[0, :, :, 0])
-    print("label:")
-    print(label[0, :, :, 0])
-
-    dc = dice_coefficient(pred, label, epsilon=1)
-    print(f"dice coefficient: {dc.numpy():.4f}")
-    jc = jaccard_coefficient(label, pred)
-    print(f"jaccard coefficient: {jc.numpy():.4f}")
-    print("\n")
-
-    print("Test Case #3")
-    pred = np.zeros((2, 2, 2, 1))
-    pred[0, :, :, :] = np.expand_dims(np.eye(2), -1)
-    pred[1, :, :, :] = np.expand_dims(np.eye(2), -1)
-
-    label = np.zeros((2, 2, 2, 1))
-    label[0, :, :, :] = np.expand_dims(np.array([[1.0, 1.0], [0.0, 0.0]]), -1)
-    label[1, :, :, :] = np.expand_dims(np.array([[1.0, 1.0], [0.0, 1.0]]), -1)
-
-    print("pred:")
-    print("class = 0")
-    print(pred[0, :, :, 0])
-    print("class = 1")
-    print(pred[1, :, :, 0])
-    print("label:")
-    print("class = 0")
-    print(label[0, :, :, 0])
-    print("class = 1")
-    print(label[1, :, :, 0])
-
-    dc = dice_coefficient(pred, label, epsilon=1)
-    print(f"dice coefficient: {dc.numpy():.4f}")
-    jc = jaccard_coefficient(label, pred)
-    print(f"jaccard coefficient: {jc.numpy():.4f}")
-
-    print("\n")
 
     print("Test Case #4")
-    pred = np.zeros((2, 2, 2, 1))
-    pred[0, :, :, :] = np.expand_dims(np.eye(2), -1)
-    pred[1, :, :, :] = np.expand_dims(np.eye(2), -1)
+    pred = np.ones((10, 15, 15, 15, 3))
+    # pred[0, :, :, :, :,] = 0
+    # pred[1, :, :, :, :,] = 0
 
     label = pred
-    label[0, 0, 0, 0] = 0
+    label[:, :, :, :, 0] = 0
+    label[:, :, :, :, 1] = 0.5
+    # print("pred:")
+    # print("class = 0")
+    # print(pred[0, :, :, :, 0])
+    # print("class = 1")
+    # print(pred[1, :, :, :, 0])
+    # print("label:")
+    # print("class = 0")
+    # print(label[0, :, :, :, 0])
+    # print("class = 1")
+    # print(label[1, :, :, :, 0])
 
-    print("pred:")
-    print("class = 0")
-    print(pred[0, :, :, 0])
-    print("class = 1")
-    print(pred[1, :, :, 0])
-    print("label:")
-    print("class = 0")
-    print(label[0, :, :, 0])
-    print("class = 1")
-    print(label[1, :, :, 0])
-
-    dc = dice_coefficient(pred, label, epsilon=1)
-    print(f"dice coefficient: {dc.numpy():.4f}")
-    jc = jaccard_coefficient(label, pred)
-    print(f"jaccard coefficient: {jc.numpy():.4f}")
+    # jc = jaccard_distance(pred, label)
+    # print(f"jaccard distance: {jc.numpy():.4f}")
+    jc2 = jaccard_distance2(label, pred)
+    # print(f"jaccard distance2: {jc2.numpy():.4f}")
