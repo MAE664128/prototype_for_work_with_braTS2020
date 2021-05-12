@@ -307,7 +307,7 @@ class PreprocessLoadData:
                            type_g: str,
                            required_postfixes: Optional[List[str]] = None,
                            is_whitening: bool = True,
-                           threshold: Tuple[float, float] = (0.05, 0.95),
+                           threshold: float = 0.05,
                            random_change_plane: bool = False,
                            augmentation: bool = False):
         """
@@ -317,8 +317,7 @@ class PreprocessLoadData:
             is_whitening:
             random_change_plane:
             augmentation:
-            threshold: коэффициент присутствия опухоли и фона на изображении
-            (по умолчанию фон занимает не более 95%, а опухоль не менее 5%)
+            threshold: интервал присутствия мозга на изображении (по умолчанию мозг занимает не менее 5%)
 
         Returns:
 
@@ -327,9 +326,8 @@ class PreprocessLoadData:
                                                        required_postfixes,
                                                        random_change_plane,
                                                        is_whitening):
-            # mean_bg = np.sum(msk[..., 1]) / msk[..., 1].size
-            mean_bg = np.count_nonzero(msk[..., 1]) / msk[..., 1].size
-            if mean_bg < threshold[0] or mean_bg > threshold[1]:
+            mean_bg = np.count_nonzero(img[..., 1] != img[..., 1].min()) / img[..., 1].size
+            if mean_bg < threshold:
                 continue
 
             if augmentation:
