@@ -190,36 +190,35 @@ class Model3DMultiResUnet:
         inputs = tf.keras.layers.Input(input_shape)
         current_layer = inputs
         levels = []
-
+        filters = []
         # -- Encoder -- #
         for layer_depth in range(depth):
-
+            filter = start_val_filters * (2 ** layer_depth)
+            filters.append(filter)
             if layer_depth < depth - 1:
                 block1 = Model3DMultiResUnet.get_multi_res_block(input_layer=current_layer,
-                                                                 n_filters=start_val_filters * (2 ** layer_depth))
+                                                                 n_filters=filter)
 
                 current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(block1)
 
                 block2 = Model3DMultiResUnet.get_multi_res_path(input_layer=block1, length_of_path=depth - layer_depth,
-                                                                n_filters=start_val_filters * (2 ** layer_depth))
+                                                                n_filters=filter)
                 levels.append([block1, block2, current_layer])
             else:
                 current_layer = Model3DMultiResUnet.get_multi_res_block(input_layer=current_layer,
-                                                                        n_filters=start_val_filters * (
-                                                                                    2 ** layer_depth))
+                                                                        n_filters=filter)
                 # levels.append([block1, block2])
         # -- Encoder -- #
 
         # -- Decoder -- #
         for layer_depth in range(depth - 2, -1, -1):
+            filter = 2 * filters[layer_depth]
             up_convolution = Model3DMultiResUnet.get_up_convolution(pool_size=pool_size,
                                                                     type_up_convolution=type_up_convolution,
-                                                                    n_filters=current_layer.shape[1])(current_layer)
+                                                                    n_filters=filter)(current_layer)
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
-            current_layer = Model3DMultiResUnet.get_multi_res_block(n_filters=levels[layer_depth][1].shape[1],
+            current_layer = Model3DMultiResUnet.get_multi_res_block(n_filters=filter,
                                                                     input_layer=concat)
-            # current_layer = Model3DMultiResUnet.get_multi_res_block(n_filters=levels[layer_depth][1].shape[1],
-            #                                                         input_layer=current_layer)
 
         final_convolution = tf.keras.layers.Conv3D(n_classes, (1, 1, 1))(current_layer)
         output = tf.keras.layers.Activation("sigmoid")(final_convolution)
@@ -349,7 +348,11 @@ class Model3DMultiResUnet:
 
 
 if __name__ == "__main__":
-    # manage_model = Model3DMultiResUnet()
     manager_model = Model3DMultiResUnet(input_img_shape=(64, 64, 64,), start_val_filters=16)
 
-    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="png/Model3DMultiResUnet.png")
+    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model3DMultiResUnet.png")
+    from contextlib import redirect_stdout
+
+    with open('about_model/Model3DMultiResUnet.txt', 'w') as f:
+        with redirect_stdout(f):
+            print(manager_model.model.summary())

@@ -190,11 +190,13 @@ class Model3DUnet:
         inputs = tf.keras.layers.Input(input_shape)
         current_layer = inputs
         levels = []
-
+        filters = []
         # -- Encoder -- #
         for layer_depth in range(depth):
-            layer1 = Model3DUnet.get_conv3d(input_layer=current_layer, n_filters=start_val_filters * (2 ** layer_depth))
-            layer2 = Model3DUnet.get_conv3d(input_layer=layer1, n_filters=start_val_filters * (2 ** layer_depth) * 2)
+            filter = start_val_filters * (2 ** layer_depth)
+            layer1 = Model3DUnet.get_conv3d(input_layer=current_layer, n_filters=filter)
+            layer2 = Model3DUnet.get_conv3d(input_layer=layer1, n_filters=filter)
+            filters.append(filter)
             if layer_depth < depth - 1:
                 current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(layer2)
                 levels.append([layer1, layer2, current_layer])
@@ -205,12 +207,15 @@ class Model3DUnet:
 
         # -- Decoder -- #
         for layer_depth in range(depth - 2, -1, -1):
+            filter = 2 * filters[layer_depth]
             up_convolution = Model3DUnet.get_up_convolution(pool_size=pool_size,
                                                             type_up_convolution=type_up_convolution,
-                                                            n_filters=current_layer.shape[1])(current_layer)
+                                                            n_filters=filter)(current_layer)
+
+
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
-            current_layer = Model3DUnet.get_conv3d(n_filters=levels[layer_depth][1].shape[1], input_layer=concat)
-            current_layer = Model3DUnet.get_conv3d(n_filters=levels[layer_depth][1].shape[1],
+            current_layer = Model3DUnet.get_conv3d(n_filters=filter, input_layer=concat)
+            current_layer = Model3DUnet.get_conv3d(n_filters=filter,
                                                    input_layer=current_layer)
 
         final_convolution = tf.keras.layers.Conv3D(n_classes, (1, 1, 1))(current_layer)
@@ -282,6 +287,11 @@ class Model3DUnet:
 
 
 if __name__ == "__main__":
-    manager_model = Model3DUnet(input_img_shape=(64, 64, 64,), start_val_filters=8)
+    manager_model = Model3DUnet(input_img_shape=(64, 64, 64,), start_val_filters=16)
 
-    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="png/Model3DUnet.png")
+    tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model3DUnet.png")
+    from contextlib import redirect_stdout
+
+    with open('about_model/Model3DUnet.txt', 'w') as f:
+        with redirect_stdout(f):
+            print(manager_model.model.summary())
