@@ -235,7 +235,7 @@ class Model3DMultiResUnet:
                 metrics = label_wise_metrics
         #         metrics.append('accuracy')
         # model.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=initial_learning_rate),                      loss=jaccard_distance, metrics=metrics)
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_learning_rate),
+        model.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=initial_learning_rate),
                       loss=jaccard_distance, metrics=metrics)
         # sample_weight_mode="temporal"
         return model
@@ -341,7 +341,7 @@ class Model3DMultiResUnet:
             else:
                 metrics = label_wise_metrics
 
-        tmp_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.initial_learning_rate),
+        tmp_model.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=self.initial_learning_rate),
                           loss=jaccard_distance, metrics=metrics)
 
         self.model = tmp_model
