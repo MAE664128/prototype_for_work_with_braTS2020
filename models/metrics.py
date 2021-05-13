@@ -2,19 +2,9 @@
 
 # TODO Необходимо прибраться в метриках. Сейчас это полигон для тестов
 import functools
-from tensorflow.keras import backend as k
-import tensorflow as tf
 import numpy as np
-
-
-def dice_coefficient_old(y_true, y_pred, smooth=1.):
-    """
-    Мера Сёренсена — бинарная мера сходства.
-    """
-    y_true_f = k.flatten(y_true)
-    y_pred_f = k.flatten(y_pred)
-    intersection = k.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (k.sum(y_true_f) + k.sum(y_pred_f) + smooth)
+import tensorflow as tf
+from tensorflow.keras import backend as k
 
 
 def dice_coefficient(y_true, y_pred,
@@ -58,7 +48,7 @@ def multiclass_weighted_dice_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Te
     return 1 - numerator / denominator
 
 
-def soft_dice_loss(y_true: tf.Tensor, y_pred: tf.Tensor,
+def soft_dice_loss(y_true, y_pred,
                    axis: tuple = (0, 1, 2),
                    epsilon: float = 0.00001):
     """
@@ -111,7 +101,7 @@ def get_dice_metric_as_custom_object(count):
     return d
 
 
-def jaccard_coefficient(y_true: tf.Tensor, y_pred: tf.Tensor, smooth: float = 1e-2, pull: float = 0.0):
+def jaccard_coefficient(y_true, y_pred, smooth: float = 1e-2, pull: float = 0.0):
     """ Коэффициент Жаккара для tensorflow. """
 
     y_true_f = k.flatten(y_true)
@@ -123,29 +113,9 @@ def jaccard_coefficient(y_true: tf.Tensor, y_pred: tf.Tensor, smooth: float = 1e
     return (intersection + smooth_fact) / (union + smooth)
 
 
-def jaccard_distance2(y_true: tf.Tensor, y_pred: tf.Tensor,
-                     smooth: float = 1e-2,
-                     pull: float = 0.0,
-                     limit: float = 1e3):
-
-    smooth_fract = pull * smooth
-    ofs = 1.0 / limit
-    y_true_f = k.cast_to_floatx(y_true)
-    list_jac = []
-    for i in range(3):
-        intersection = k.sum(y_true_f[..., i] * y_pred[..., i])
-        union = k.sum(y_true_f[..., i]) + k.sum(y_pred[..., i]) - intersection
-        jac = (intersection + smooth_fract) / (union + smooth)
-        list_jac.append(jac)
-
-    jac = k.mean(tf.convert_to_tensor(list_jac, dtype=tf.float32))
-
-    return 1.0 - jac
-
-def jaccard_distance(y_true: tf.Tensor, y_pred: tf.Tensor,
+def jaccard_distance(y_true, y_pred,
                      smooth: float = 1e-2,
                      pull: float = 0.0):
-
     smooth_fract = pull * smooth
     y_true_f = k.cast_to_floatx(y_true)
     y_pred = k.cast_to_floatx(y_pred)
@@ -161,7 +131,6 @@ def jaccard_distance(y_true: tf.Tensor, y_pred: tf.Tensor,
     jac = k.mean(jac, axis=-1)
 
     return 1.0 - jac
-
 
 
 def label_wise_jaccard_coefficient(y_true, y_pred, label_index):
@@ -189,26 +158,9 @@ def get_jaccard_metric_as_custom_object(count):
 if __name__ == "__main__":
     # TEST CASES
 
-    print("Test Case #4")
     pred = np.ones((10, 15, 15, 15, 3))
-    # pred[0, :, :, :, :,] = 0
-    # pred[1, :, :, :, :,] = 0
-
     label = pred
     label[:, :, :, :, 0] = 0
     label[:, :, :, :, 1] = 0.5
-    # print("pred:")
-    # print("class = 0")
-    # print(pred[0, :, :, :, 0])
-    # print("class = 1")
-    # print(pred[1, :, :, :, 0])
-    # print("label:")
-    # print("class = 0")
-    # print(label[0, :, :, :, 0])
-    # print("class = 1")
-    # print(label[1, :, :, :, 0])
 
-    # jc = jaccard_distance(pred, label)
-    # print(f"jaccard distance: {jc.numpy():.4f}")
-    jc2 = jaccard_distance2(label, pred)
-    # print(f"jaccard distance2: {jc2.numpy():.4f}")
+    jc = jaccard_distance(label, pred)
