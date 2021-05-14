@@ -326,22 +326,18 @@ class PreprocessLoadData:
         for img, msk in self.get_kernel_generator_data(type_g,
                                                        required_postfixes,
                                                        random_change_plane,
-                                                       is_whitening):
-            mean_bg = np.count_nonzero(img[..., 1] != img[..., 1].min()) / img[..., 1].size
-            if mean_bg < threshold:
-                continue
-
-            if augmentation:
-                if random.random() < 0.5:
-                    img, msk = flip_or_rot_img(img, msk)
-
+                                                       is_whitening,
+                                                       threshold,
+                                                       augmentation):
             yield img, msk
 
     def get_kernel_generator_data(self,
                                   type_g: str,
                                   required_postfixes: Optional[List[str]] = None,
                                   random_change_plane: bool = False,
-                                  is_whitening: bool = True):
+                                  is_whitening: bool = True,
+                                  threshold: float = 0.05,
+                                  augmentation: bool = False):
         """ Возвращает 2D или 3D генератор в зависимости от размерности kernel """
         if required_postfixes is None:
             required_postfixes = ["_t1", "_t1ce", "_t2"]
@@ -351,19 +347,22 @@ class PreprocessLoadData:
 
         # TODO УБРАТЬ
         #   Добавлено для отладки, что бы обучать только по 1 снимку
-        train_file_paths: list = [self.__file_paths[0]]
+        train_file_paths: list = self.__file_paths[0:8]
 
         test_file_paths: list = self.__file_paths[train_length:data_length - 1]
         if type_g == "train":
             return self.__get_kernel_generator_data(file_paths=train_file_paths, type_g=type_g,
                                                     required_postfixes=required_postfixes,
                                                     random_change_plane=random_change_plane,
-                                                    is_whitening=is_whitening)
+                                                    is_whitening=is_whitening,
+                                                    threshold=threshold,
+                                                    augmentation=augmentation)
         elif type_g == "test":
             return self.__get_kernel_generator_data(file_paths=test_file_paths, type_g=type_g,
                                                     required_postfixes=required_postfixes,
                                                     random_change_plane=random_change_plane,
-                                                    is_whitening=is_whitening)
+                                                    is_whitening=is_whitening,
+                                                    threshold=threshold, augmentation=augmentation)
         else:
             assert False, \
                 f"[PreprocessLoadData]: Параметр type_g ожидает значение \"train\" или \"test\", но получил {type_g}"
@@ -371,7 +370,13 @@ class PreprocessLoadData:
     def __get_kernel_generator_data(self, file_paths: list, type_g: str,
                                     required_postfixes: List[str],
                                     random_change_plane: bool = False,
-                                    is_whitening: bool = True):
+                                    is_whitening: bool = True,
+                                    threshold: float = 0.05,
+                                    augmentation: bool = False):
+
+        tmp_list_img = []
+        tmp_list_msk = []
+
         while True:
             if type_g == "train":
                 random.shuffle(file_paths)
@@ -386,7 +391,7 @@ class PreprocessLoadData:
                 input_mask = split_mask_values_by_brats_channel(input_mask)
 
                 if random_change_plane:
-                    # TODO Перевисать на универсальную, независящую от размеров функцию
+                    # TODO Переписать на универсальную, независящую от размеров функцию
                     #  реконструкции плоскостей. Сейчас функция работает только для 3d с одинаковыми сторонами
                     # Только для 3д
                     id_plane = random.randint(1, 3)
@@ -403,15 +408,43 @@ class PreprocessLoadData:
                         input_image = np.rot90(input_image, 2, axes=(1, 2))
                         input_mask = np.rot90(input_mask, 2, axes=(1, 2))
 
-                for img, msk in self.__kernel_split(input_image, input_mask):
-                    yield img, msk
+                img, msk = self.__kernel_split(input_image, input_mask)
+                i_ind, j_ind, k_ind, _, _, _, _ = img.shape
+                for i in range(i_ind):
+                    for j in range(j_ind):
+                        for k in range(k_ind):
+                            if len(tmp_list_img) >= self.__batch_size:
+                                tmp_list = list(zip(tmp_list_img, tmp_list_msk))
+                                random.shuffle(tmp_list)
+                                tmp_list_img, tmp_list_msk = zip(*tmp_list)
+                                del tmp_list
+                                result_img = np.asarray(tmp_list_img, dtype=np.float32).reshape(
+                                    (self.__batch_size,) + self.__kernel_size + (img.shape[-1],))
+                                result_msk = np.asarray(tmp_list_msk, dtype=np.float32).reshape(
+                                    (self.__batch_size,) + self.__kernel_size + (msk.shape[-1],))
+                                tmp_list_img = []
+                                tmp_list_msk = []
+
+                                yield result_img, result_msk
+                            else:
+                                mean_bg = img[i, j, k, :, :, :, 1].min() / img[i, j, k, :, :, :, 1].size
+                                mean_bg = np.count_nonzero(img[i, j, k, :, :, :, 1] != mean_bg)
+                                if mean_bg < threshold:
+                                    continue
+
+                                if augmentation:
+                                    if random.random() < 0.5:
+                                        res_flip = flip_or_rot_img(img[i, j, k, :, :, :, :], msk[i, j, k, :, :, :, :])
+                                        tmp_list_img.append(res_flip[0])
+                                        tmp_list_msk.append(res_flip[1])
+                                else:
+                                    tmp_list_img.append(img[i, j, k, :, :, :, :])
+                                    tmp_list_msk.append(msk[i, j, k, :, :, :, :])
 
     def __kernel_split(self, image_array: np.ndarray,
                        mask_array: np.ndarray,
                        kernel_size: Optional[Tuple[int, int, int]] = None,
-                       step: Optional[Tuple[int, int, int]] = None,
-                       batch_size: Optional[int] = None,
-                       ):
+                       step: Optional[Tuple[int, int, int]] = None):
         """Разделение 3д-массива на блоки размером соответствующим размеру kernel_size.
         Блоки формируются по принципу скользящего окна c шагом step.
 
@@ -430,54 +463,15 @@ class PreprocessLoadData:
             kernel_size = self.__kernel_size
         if step is None:
             step = self.__step
-        if batch_size is None:
-            batch_size = self.__batch_size
         if len(kernel_size) == 2:
-            kernel_n = (batch_size,) + kernel_size
-            step_n = (batch_size,) + step
+            kernel_n = (1,) + kernel_size
+            step_n = (1,) + step
         if len(kernel_size) == 3:
             kernel_n = kernel_size
             step_n = step
         img = roll_3d_over_4d_array(image_array, kernel_n, step_n)
         msk = roll_3d_over_4d_array(mask_array, kernel_n, step_n)
-        i_ind, j_ind, k_ind, _, _, _, _ = img.shape
-        tmp_list_img = []
-        tmp_list_msk = []
-        for i in range(i_ind):
-            for j in range(j_ind):
-                for k in range(k_ind):
-                    if len(kernel_size) == 2:
-                        yield img[i, j, k, :, :, :, :], msk[i, j, k, :, :, :, :]
-                    else:
-                        if batch_size == 1:
-                            result_img = np.asarray([img[i, j, k, :, :, :, :]], dtype=np.float32).reshape(
-                                (batch_size,) + kernel_size + (img.shape[-1],))
-                            result_msk = np.asarray([msk[i, j, k, :, :, :, :]], dtype=np.float32).reshape(
-                                (batch_size,) + kernel_size + (msk.shape[-1],))
-                            yield result_img, result_msk
-                        else:
-                            # try:
-                            #     tmp_list_img
-                            # except NameError:
-                            #     tmp_list_img = []
-                            # try:
-                            #     tmp_list_msk
-                            # except NameError:
-                            #     tmp_list_msk = []
-                            if len(tmp_list_img) >= batch_size:
-                                result_img = np.asarray(tmp_list_img, dtype=np.float32).reshape(
-                                    (batch_size,) + kernel_size + (img.shape[-1],))
-                                result_msk = np.asarray(tmp_list_msk, dtype=np.float32).reshape(
-                                    (batch_size,) + kernel_size + (msk.shape[-1],))
-                                tmp_list_img = []
-                                tmp_list_msk = []
-                                # del tmp_list_img
-                                # del tmp_list_msk
-                                # gc.collect()
-                                yield result_img, result_msk
-                            else:
-                                tmp_list_img.append(img[i, j, k, :, :, :, :])
-                                tmp_list_msk.append(msk[i, j, k, :, :, :, :])
+        return img, msk
 
 
 def split_mask_values_by_channel(y_true, n_channel):
@@ -503,7 +497,7 @@ def split_mask_values_by_brats_channel(y_true):
 # borrowed from DLTK
 def whitening(image):
     """Отбеливание. Нормализует изображение до нулевого среднего и единичной дисперсии."""
-    # image = image.astype(np.float32)
+    image = image.astype(np.float32)
     mean = np.mean(image)
     std = np.std(image)
     if std > 0:
