@@ -104,12 +104,11 @@ def get_dice_metric_as_custom_object(count):
 def jaccard_coefficient(y_true, y_pred, smooth: float = 1e-2, pull: float = 0.0):
     """ Коэффициент Жаккара для tensorflow. """
 
-    y_true_f = k.flatten(y_true)
-    y_pred_f = k.flatten(y_pred)
-    # y_true_f = k.cast_to_floatx(y_true)
+    y_true_f = k.cast_to_floatx(y_true)
+    y_pred_f = k.cast_to_floatx(y_pred)
     smooth_fact = pull * smooth
-    intersection = k.sum(y_true_f * y_pred_f)
-    union = k.sum(y_true_f) + k.sum(y_pred_f) - intersection
+    intersection = k.sum(y_true_f * y_pred_f, axis=-1)
+    union = k.sum(y_true_f, axis=-1) + k.sum(y_pred_f, axis=-1) - intersection
     return (intersection + smooth_fact) / (union + smooth)
 
 
