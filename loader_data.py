@@ -374,8 +374,12 @@ class PreprocessLoadData:
                                     threshold: float = 0.05,
                                     augmentation: bool = False):
 
-        tmp_list_img = []
-        tmp_list_msk = []
+        b_ind = 0
+        tmp_result_img = np.zeros((self.__batch_size,) + self.__kernel_size + (len(self.__filename_postfix),),
+                                  dtype=np.float32)
+        # Важно, значение классов может отличаться
+        tmp_result_msk = np.zeros((self.__batch_size,) + self.__kernel_size + (3,),
+                                  dtype=np.float32)
 
         while True:
             if type_g == "train":
@@ -413,33 +417,24 @@ class PreprocessLoadData:
                 for i in range(i_ind):
                     for j in range(j_ind):
                         for k in range(k_ind):
-                            if len(tmp_list_img) >= self.__batch_size:
-                                tmp_list = list(zip(tmp_list_img, tmp_list_msk))
-                                random.shuffle(tmp_list)
-                                tmp_list_img, tmp_list_msk = zip(*tmp_list)
-                                del tmp_list
-                                result_img = np.asarray(tmp_list_img, dtype=np.float32).reshape(
-                                    (self.__batch_size,) + self.__kernel_size + (img.shape[-1],))
-                                result_msk = np.asarray(tmp_list_msk, dtype=np.float32).reshape(
-                                    (self.__batch_size,) + self.__kernel_size + (msk.shape[-1],))
-                                tmp_list_img = []
-                                tmp_list_msk = []
-
-                                yield result_img, result_msk
+                            if b_ind >= self.__batch_size:
+                                b_ind = 0
+                                yield tmp_result_img, tmp_result_msk
                             else:
                                 mean_bg = img[i, j, k, :, :, :, 1].min() / img[i, j, k, :, :, :, 1].size
                                 mean_bg = np.count_nonzero(img[i, j, k, :, :, :, 1] != mean_bg)
                                 if mean_bg < threshold:
                                     continue
-
                                 if augmentation:
                                     if random.random() < 0.5:
                                         res_flip = flip_or_rot_img(img[i, j, k, :, :, :, :], msk[i, j, k, :, :, :, :])
-                                        tmp_list_img.append(res_flip[0])
-                                        tmp_list_msk.append(res_flip[1])
+                                        tmp_result_img[b_ind, ...] = res_flip[0]
+                                        tmp_result_msk[b_ind, ...] = res_flip[1]
+                                        b_ind += 1
                                 else:
-                                    tmp_list_img.append(img[i, j, k, :, :, :, :])
-                                    tmp_list_msk.append(msk[i, j, k, :, :, :, :])
+                                    tmp_result_img[b_ind, ...] = img[i, j, k, :, :, :, :]
+                                    tmp_result_msk[b_ind, ...] = msk[i, j, k, :, :, :, :]
+                                    b_ind += 1
 
     def __kernel_split(self, image_array: np.ndarray,
                        mask_array: np.ndarray,
