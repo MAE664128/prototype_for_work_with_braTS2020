@@ -421,8 +421,8 @@ class PreprocessLoadData:
                                 b_ind = 0
                                 yield tmp_result_img, tmp_result_msk
                             else:
-                                mean_bg = img[i, j, k, :, :, :, 1].min() / img[i, j, k, :, :, :, 1].size
-                                mean_bg = np.count_nonzero(img[i, j, k, :, :, :, 1] != mean_bg)
+                                mean_bg = np.count_nonzero(img[i, j, k, :, :, :, 1] != img[i, j, k, :, :, :, 1].min())
+                                mean_bg = mean_bg / img[i, j, k, :, :, :, 1].size
                                 if mean_bg < threshold:
                                     continue
                                 if augmentation:
