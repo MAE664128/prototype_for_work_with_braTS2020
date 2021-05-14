@@ -489,17 +489,31 @@ def split_mask_values_by_brats_channel(y_true):
     return new_y_true
 
 
-# borrowed from DLTK
-def whitening(image):
-    """Отбеливание. Нормализует изображение до нулевого среднего и единичной дисперсии."""
-    image = image.astype(np.float32)
-    mean = np.mean(image)
-    std = np.std(image)
+def whitening(in_image):
+    """Отбеливание."""
+    image = in_image.astype(np.float32)
+
+    # Убираю выбросы
+    non_zeros = image > 0
+    zeros = image == 0
+    low, high = np.percentile(image[non_zeros], [0.5, 99.5])
+    image[non_zeros] = np.clip(image[non_zeros], low, high)
+
+    # Нормализует изображение до нулевого среднего и единичной дисперсии.
+    mean = np.mean(image[non_zeros])
+    std = np.std(image[non_zeros])
     if std > 0:
-        ret = (image - mean) / std
+        image[non_zeros] = (image[non_zeros] - mean) / std
     else:
-        ret = image * 0.
-    return ret
+        image[non_zeros] = image[non_zeros] * 0.
+
+    # Масштабируем от 0 до 255
+    min_ = np.min(image[non_zeros])
+    max_ = np.max(image[non_zeros])
+    scale = max_ - min_
+    image[non_zeros] = ((image[non_zeros] - min_) / scale) * (254 - 1) + 1
+    image[zeros] = 0
+    return image
 
 
 def flip_or_rot_img(img, msk=None):
