@@ -24,7 +24,7 @@ class AnimateView:
             min_val = 0
         if max_val is None:
             max_val = img.max()
-        z, _, _ = img.shape
+        z, x, y = img.shape
         self.ims = []
         for ind_z in range(z):
             im = self.ax.imshow(img[ind_z, :, :], animated=True, cmap='gray', vmin=min_val, vmax=max_val)
@@ -46,10 +46,10 @@ class AnimateView:
 
 def gray2rgb(gray):
     # gray it is 3d array
-    z, y, x = gray.shape
+    z, x, y = gray.shape
     tmp_gray = np.interp(gray, (gray.min(), gray.max()), (0, 254))
     tmp_gray = tmp_gray.astype(np.uint8)
-    img_new = np.zeros((z, y, x, 3))
+    img_new = np.zeros((z, x, y, 3))
     img_new[:, :, :, 0] = tmp_gray
     img_new[:, :, :, 1] = tmp_gray
     img_new[:, :, :, 2] = tmp_gray
@@ -319,6 +319,7 @@ class PreprocessLoadData:
             augmentation:
             threshold: интервал присутствия мозга на изображении (по умолчанию мозг занимает не менее 5%)
 
+
         Returns:
 
         """
@@ -515,8 +516,8 @@ def whitening(image):
 def flip_or_rot_img(img, msk=None):
     """
     Args:
-        img: массив размерностью (bath_size, z, y, x, channel) или (bath_size, y, x, channel)
-        msk: массив размерностью (bath_size, z, y, x, channel) или (bath_size, y, x, channel)
+        img, msk: массив размерностью (bath_size, z, x, y, channel) или  (bath_size, x, y, channel)
+
     Returns: перевернутый случайным образом массив
     """
     dim = len(img.shape)
