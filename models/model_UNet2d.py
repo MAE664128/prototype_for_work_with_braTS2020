@@ -34,7 +34,7 @@ class Model2DUnet:
     # Размеры x, y и z должны делиться на размер пула в степени глубины UNet, то есть pool_size ^ depth.
     INPUT_IMG_SHAPE: Union[tuple, int] = (128, 128)
     # TYPE_UP_CONVOLUTION: тип повышающего слоя. up_sampling_2d использует меньше памяти.
-    TYPE_UP_CONVOLUTION = ["conv_2d_transpose", "up_sampling_2d"]
+    TYPE_UP_CONVOLUTION = ["up_sampling_2d+conv2d", "conv_2d_transpose", "up_sampling_2d"]
 
     def __init__(self,
                  depth: Optional[int] = None,
@@ -215,9 +215,10 @@ class Model2DUnet:
         # -- Decoder -- #
         for layer_depth in range(depth - 2, -1, -1):
             filter = 2 * filters[layer_depth]
-            up_convolution = Model2DUnet.get_up_convolution(pool_size=pool_size,
+            up_convolution = Model2DUnet.get_up_convolution(input_layer=current_layer,
+                                                            pool_size=pool_size,
                                                             type_up_convolution=type_up_convolution,
-                                                            n_filters=filter)(current_layer)
+                                                            n_filters=filter)
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
             current_layer = Model2DUnet.get_conv2d(n_filters=filter, input_layer=concat)
             current_layer = Model2DUnet.get_conv2d(n_filters=filter,
@@ -246,18 +247,24 @@ class Model2DUnet:
                    padding='same', strides=(1, 1)):
         layer = tf.keras.layers.Conv2D(n_filters, kernel, padding=padding, strides=strides)(input_layer)
         layer = tf.keras.layers.BatchNormalization()(layer)
-
-        # layer = InstanceNormalization()(layer)
         return tf.keras.layers.Activation('relu')(layer)
 
     @staticmethod
-    def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2), strides=(2, 2),
+    def get_up_convolution(input_layer, n_filters, pool_size, kernel_size=(2, 2), strides=(2, 2),
                            type_up_convolution="up_sampling_2d"):
         if type_up_convolution == "conv_2d_transpose":
             return tf.keras.layers.Conv2DTranspose(filters=n_filters, kernel_size=kernel_size,
-                                                   strides=strides)
+                                                   strides=strides)(input_layer)
         if type_up_convolution == "up_sampling_2d":
-            return tf.keras.layers.UpSampling2D(size=pool_size)
+            return tf.keras.layers.UpSampling2D(size=pool_size)(input_layer)
+        if type_up_convolution == "up_sampling_2d+conv2d":
+            l = tf.keras.layers.UpSampling2D(size=pool_size)(input_layer)
+            return Model2DUnet.get_conv2d(input_layer=l,
+                                          n_filters=n_filters,
+                                          kernel=(2, 2),
+                                          padding="same",
+                                          strides=(1, 1))
+
 
     @staticmethod
     def load_model(path_to_model_file, n_classes):

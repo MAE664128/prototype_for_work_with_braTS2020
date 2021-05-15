@@ -219,9 +219,10 @@ class Model3DMultiResUnet:
         # -- Decoder -- #
         for layer_depth in range(depth - 2, -1, -1):
             filter = 2 * filters[layer_depth]
-            up_convolution = Model3DMultiResUnet.get_up_convolution(pool_size=pool_size,
+            up_convolution = Model3DMultiResUnet.get_up_convolution(input_layer=current_layer,
+                                                                    pool_size=pool_size,
                                                                     type_up_convolution=type_up_convolution,
-                                                                    n_filters=filter)(current_layer)
+                                                                    n_filters=filter)
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
             current_layer = Model3DMultiResUnet.get_multi_res_block(n_filters=filter,
                                                                     input_layer=concat)
@@ -316,13 +317,19 @@ class Model3DMultiResUnet:
         return out_layer
 
     @staticmethod
-    def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 2, 2),
+    def get_up_convolution(input_layer, n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 2, 2),
                            type_up_convolution="up_sampling_3d"):
         if type_up_convolution == "conv_3d_transpose":
             return tf.keras.layers.Conv3DTranspose(filters=n_filters, kernel_size=kernel_size,
-                                                   strides=strides)
+                                                   strides=strides)(input_layer)
         if type_up_convolution == "up_sampling_3d":
-            return tf.keras.layers.UpSampling3D(size=pool_size)
+            return tf.keras.layers.UpSampling3D(size=pool_size)(input_layer)
+        if type_up_convolution == "up_sampling_3d+conv3d":
+            l = tf.keras.layers.UpSampling3D(size=pool_size)(input_layer)
+            l = tf.keras.layers.Conv3D(n_filters, (2, 2, 2), padding="same", strides=(1, 1, 1))(l)
+            l = tf.keras.layers.BatchNormalization()(l)
+            return tf.keras.layers.Activation('relu')(l)
+
 
     @staticmethod
     def load_model(path_to_model_file, n_classes=None, compile=True):
