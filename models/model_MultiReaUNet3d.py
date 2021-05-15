@@ -199,7 +199,13 @@ class Model3DMultiResUnet:
                 block1 = Model3DMultiResUnet.get_multi_res_block(input_layer=current_layer,
                                                                  n_filters=filter)
 
-                current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(block1)
+                # current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(block1)
+                current_layer = tf.keras.layers.Conv3D(filters=filter * 2,
+                                                       kernel_size=(3, 3, 3),
+                                                       padding="same",
+                                                       strides=(2, 2, 2))(block1)
+                current_layer = tf.keras.layers.BatchNormalization()(current_layer)
+                current_layer = tf.keras.layers.Activation('relu')(current_layer)
 
                 block2 = Model3DMultiResUnet.get_multi_res_path(input_layer=block1, length_of_path=depth - layer_depth,
                                                                 n_filters=filter)
@@ -207,7 +213,7 @@ class Model3DMultiResUnet:
             else:
                 current_layer = Model3DMultiResUnet.get_multi_res_block(input_layer=current_layer,
                                                                         n_filters=filter)
-                # levels.append([block1, block2])
+                # levels.append([block1, current_layer])
         # -- Encoder -- #
 
         # -- Decoder -- #
@@ -271,7 +277,7 @@ class Model3DMultiResUnet:
             layer = tf.keras.layers.add([shortcut, layer])
             tf.keras.layers.Activation('relu')(layer)
             layer = tf.keras.layers.BatchNormalization()(layer)
-        layer = InstanceNormalization()(layer)
+        # layer = InstanceNormalization()(layer)
         return layer
 
     @staticmethod
@@ -305,8 +311,8 @@ class Model3DMultiResUnet:
         out_layer = tf.keras.layers.add([shortcut, concat])
 
         out_layer = tf.keras.layers.Activation('relu')(out_layer)
-        
-        out_layer = InstanceNormalization()(out_layer)
+
+        # out_layer = InstanceNormalization()(out_layer)
         return out_layer
 
     @staticmethod
@@ -348,7 +354,7 @@ class Model3DMultiResUnet:
 
 
 if __name__ == "__main__":
-    manager_model = Model3DMultiResUnet(input_img_shape=(64, 64, 64,), start_val_filters=16)
+    manager_model = Model3DMultiResUnet(depth=5, input_img_shape=(64, 64, 64,), start_val_filters=16)
 
     tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model3DMultiResUnet.png")
     from contextlib import redirect_stdout

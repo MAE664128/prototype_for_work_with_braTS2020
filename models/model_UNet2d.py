@@ -199,7 +199,13 @@ class Model2DUnet:
             filters.append(filter)
 
             if layer_depth < depth - 1:
-                current_layer = tf.keras.layers.MaxPooling2D(pool_size=pool_size)(layer2)
+                # current_layer = tf.keras.layers.MaxPooling2D(pool_size=pool_size)(layer2)
+                current_layer = Model2DUnet.get_conv2d(input_layer=layer2,
+                                                       n_filters=filter * 2,
+                                                       kernel=(3, 3),
+                                                       padding="same",
+                                                       strides=(2, 2))
+
                 levels.append([layer1, layer2, current_layer])
             else:
                 current_layer = layer2
@@ -241,7 +247,7 @@ class Model2DUnet:
         layer = tf.keras.layers.Conv2D(n_filters, kernel, padding=padding, strides=strides)(input_layer)
         layer = tf.keras.layers.BatchNormalization()(layer)
 
-        layer = InstanceNormalization()(layer)
+        # layer = InstanceNormalization()(layer)
         return tf.keras.layers.Activation('relu')(layer)
 
     @staticmethod
@@ -266,7 +272,7 @@ class Model2DUnet:
 
 if __name__ == "__main__":
     # manage_model = Model2DUnet()
-    manager_model = Model2DUnet(input_img_shape=(128, 128,), start_val_filters=16)
+    manager_model = Model2DUnet(depth=5, input_img_shape=(128, 128,), start_val_filters=16)
 
     tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model2DUnet.png")
     from contextlib import redirect_stdout

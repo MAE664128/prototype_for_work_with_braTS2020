@@ -198,7 +198,13 @@ class Model2DMultiResUnet:
                 block1 = Model2DMultiResUnet.get_multi_res_block(input_layer=current_layer,
                                                                  n_filters=filter)
 
-                current_layer = tf.keras.layers.MaxPooling2D(pool_size=pool_size)(block1)
+                # current_layer = tf.keras.layers.MaxPooling2D(pool_size=pool_size)(block1)
+                current_layer = tf.keras.layers.Conv2D(filters=filter * 2,
+                                                       kernel_size=(3, 3),
+                                                       padding="same",
+                                                       strides=(2, 2))(block1)
+                current_layer = tf.keras.layers.BatchNormalization()(current_layer)
+                current_layer = tf.keras.layers.Activation('relu')(current_layer)
 
                 block2 = Model2DMultiResUnet.get_multi_res_path(input_layer=block1, length_of_path=depth - layer_depth,
                                                                 n_filters=filter)
@@ -237,6 +243,7 @@ class Model2DMultiResUnet:
                       loss=jaccard_distance, metrics=metrics)
         return model
 
+
     @staticmethod
     def get_multi_res_path(input_layer, n_filters, length_of_path,
                            kernel=(3, 3), padding='same', strides=(1, 1)):
@@ -268,7 +275,7 @@ class Model2DMultiResUnet:
             layer = tf.keras.layers.add([shortcut, layer])
             tf.keras.layers.Activation('relu')(layer)
             layer = tf.keras.layers.BatchNormalization()(layer)
-        layer = InstanceNormalization()(layer)
+        # layer = InstanceNormalization()(layer)
         return layer
 
     @staticmethod
@@ -303,7 +310,7 @@ class Model2DMultiResUnet:
 
         out_layer = tf.keras.layers.Activation('relu')(out_layer)
 
-        out_layer = InstanceNormalization()(out_layer)
+        # out_layer = InstanceNormalization()(out_layer)
         return out_layer
 
     @staticmethod
@@ -345,7 +352,7 @@ class Model2DMultiResUnet:
 
 
 if __name__ == "__main__":
-    manager_model = Model2DMultiResUnet(input_img_shape=(128, 128), start_val_filters=16)
+    manager_model = Model2DMultiResUnet(depth=5, input_img_shape=(128, 128), start_val_filters=16)
 
     tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model2DMultiResUnet.png")
     from contextlib import redirect_stdout

@@ -198,7 +198,12 @@ class Model3DUnet:
             layer2 = Model3DUnet.get_conv3d(input_layer=layer1, n_filters=filter)
             filters.append(filter)
             if layer_depth < depth - 1:
-                current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(layer2)
+                # current_layer = tf.keras.layers.MaxPooling3D(pool_size=pool_size)(layer2)
+                current_layer = Model3DUnet.get_conv3d(input_layer=layer2,
+                                                       n_filters=filter * 2,
+                                                       kernel=(3, 3, 3),
+                                                       padding="same",
+                                                       strides=(2, 2, 2))
                 levels.append([layer1, layer2, current_layer])
             else:
                 current_layer = layer2
@@ -207,11 +212,10 @@ class Model3DUnet:
 
         # -- Decoder -- #
         for layer_depth in range(depth - 2, -1, -1):
-            filter = 2 * filters[layer_depth]
+            filter = filters[layer_depth]
             up_convolution = Model3DUnet.get_up_convolution(pool_size=pool_size,
                                                             type_up_convolution=type_up_convolution,
                                                             n_filters=filter)(current_layer)
-
 
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
             current_layer = Model3DUnet.get_conv3d(n_filters=filter, input_layer=concat)
@@ -219,7 +223,6 @@ class Model3DUnet:
                                                    input_layer=current_layer)
 
         final_convolution = tf.keras.layers.Conv3D(n_classes, (1, 1, 1))(current_layer)
-        # output = tf.keras.layers.Activation("sigmoid")(final_convolution)
         output = tf.keras.layers.Activation("sigmoid")(final_convolution)
         model = tf.keras.Model(inputs=inputs, outputs=output)
 
@@ -237,15 +240,13 @@ class Model3DUnet:
                       loss=jaccard_distance, metrics=metrics)
         return model
 
-    
-
     @staticmethod
     def get_conv3d(input_layer, n_filters, kernel=(3, 3, 3),
                    padding='same', strides=(1, 1, 1)):
         layer = tf.keras.layers.Conv3D(n_filters, kernel, padding=padding, strides=strides)(input_layer)
         layer = tf.keras.layers.BatchNormalization()(layer)
 
-        layer = InstanceNormalization()(layer)
+        # layer = InstanceNormalization()(layer)
         return tf.keras.layers.Activation('relu')(layer)
 
     @staticmethod
@@ -271,7 +272,7 @@ class Model3DUnet:
         metrics = self.list_metrics
         if not isinstance(metrics, list):
             metrics = [metrics]
-        
+
         n_classes = self.n_classes
         if n_classes > 1:
             label_wise_metrics = [get_label_jaccard_coefficient_function(index) for index in range(n_classes)]
@@ -281,13 +282,13 @@ class Model3DUnet:
                 metrics = label_wise_metrics
 
         tmp_model.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=self.initial_learning_rate),
-                      loss=jaccard_distance, metrics=metrics)
-        
+                          loss=jaccard_distance, metrics=metrics)
+
         self.model = tmp_model
 
 
 if __name__ == "__main__":
-    manager_model = Model3DUnet(input_img_shape=(64, 64, 64,), start_val_filters=16)
+    manager_model = Model3DUnet(depth=5, input_img_shape=(64, 64, 64,), start_val_filters=16)
 
     tf.keras.utils.plot_model(manager_model.model, show_shapes=True, to_file="about_model/Model3DUnet.png")
     from contextlib import redirect_stdout
