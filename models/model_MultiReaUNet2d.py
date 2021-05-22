@@ -208,6 +208,7 @@ class Model2DMultiResUnet:
 
                 block2 = Model2DMultiResUnet.get_multi_res_path(input_layer=block1, length_of_path=depth - layer_depth,
                                                                 n_filters=filter)
+                block2 = tf.keras.layers.Dropout(0.1)(block2)
                 levels.append([block1, block2, current_layer])
             else:
                 current_layer = Model2DMultiResUnet.get_multi_res_block(input_layer=current_layer,
@@ -224,6 +225,7 @@ class Model2DMultiResUnet:
                                                                     type_up_convolution=type_up_convolution,
                                                                     n_filters=filter)
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
+            concat = tf.keras.layers.Dropout(0.1)(concat)
             current_layer = Model2DMultiResUnet.get_multi_res_block(n_filters=filter,
                                                                     input_layer=concat)
 

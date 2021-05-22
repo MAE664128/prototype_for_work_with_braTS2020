@@ -195,7 +195,9 @@ class Model2DUnet:
         for layer_depth in range(depth):
             filter = start_val_filters * (2 ** layer_depth)
             layer1 = Model2DUnet.get_conv2d(input_layer=current_layer, n_filters=filter)
+            layer1 = tf.keras.layers.Dropout(0.1)(layer1)
             layer2 = Model2DUnet.get_conv2d(input_layer=layer1, n_filters=filter)
+            layer2 = tf.keras.layers.Dropout(0.1)(layer2)
             filters.append(filter)
 
             if layer_depth < depth - 1:
@@ -220,6 +222,7 @@ class Model2DUnet:
                                                             type_up_convolution=type_up_convolution,
                                                             n_filters=filter)
             concat = tf.keras.layers.concatenate([up_convolution, levels[layer_depth][1]], axis=-1)
+            concat = tf.keras.layers.Dropout(0.1)(concat)
             current_layer = Model2DUnet.get_conv2d(n_filters=filter, input_layer=concat)
             current_layer = Model2DUnet.get_conv2d(n_filters=filter,
                                                    input_layer=current_layer)
